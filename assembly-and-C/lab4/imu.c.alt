@@ -1,0 +1,186 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <math.h>
+
+// The distance from Beijing South to Tianjin is 140 Km
+// Normally, this should take about 33 minutes, but this depends on 
+// the acceleration and velocity profile, which further depends on how
+// well velocity can be estimated and an ideal acceleration and braking profile
+// followed.
+
+#define CLOCKS_PER_MICROSEC (1000)
+#define TRAVEL_TIME_SECS (2000)
+#define MAX_TRAVEL_TIME_ALLOWED (5000)
+#define MPK (1000)
+#define KPM (1.0/1000.0)
+#define SPH (3600.0)
+#define MAX_VEL_KPH (300.0)
+#define MAX_VEL_KPS (MAX_VEL_KPH/SPH)
+#define TIME_TO_MAX_VEL ((float)TRAVEL_TIME_SECS/10.0)
+#define TIME_TO_STOP ((float)TRAVEL_TIME_SECS/50.0)
+#define MAX_ACCEL_KPSPS (MAX_VEL_KPS/(TIME_TO_MAX_VEL))
+#define MAX_DECEL_KPSPS (MAX_VEL_KPS/(TIME_TO_STOP))
+
+#define MAX_VEL_MPS (MAX_VEL_KPS*MPK)
+#define MAX_ACCEL_MPSPS (MAX_ACCEL_KPSPS*MPK)
+#define MAX_DECEL_MPSPS (MAX_DECEL_KPSPS*MPK)
+
+#define TRAVEL_DISTANCE_KM (140)
+#define TRAVEL_DISTANCE_M (140*MPK)
+
+#define PI 3.14159265359879323846f
+
+
+float a_profile[MAX_TRAVEL_TIME_ALLOWED];
+float v_profile[MAX_TRAVEL_TIME_ALLOWED];
+float p_profile[MAX_TRAVEL_TIME_ALLOWED];
+float t_profile[MAX_TRAVEL_TIME_ALLOWED];
+
+float pos_f(float time)
+{
+  return p_profile[(unsigned)(time-0.2)]; 
+}
+
+float vel_f(float time)
+{
+  return v_profile[(unsigned)(time-0.1)]; 
+}
+
+
+float accel_f(float time)
+{
+///////////// replace with ASM /////////////////////////////
+  float t = time/((float)TRAVEL_TIME_SECS/(PI));
+  float accel;
+
+  // inside acceleration window
+  if((time < ((float)TRAVEL_TIME_SECS - TIME_TO_STOP)) && (vel_f(time) < MAX_VEL_MPS))
+  {
+    // Call transcendental function
+    //accel=(MAX_ACCEL_MPSPS * sinf(t));
+
+    // Approximate with Taylor series
+    accel=(MAX_ACCEL_MPSPS * (t - ((t*t*t)/6.0) + ((t*t*t*t*t)/120.0) - (t*t*t*t*t*t*t)/940.0));
+
+  }
+
+  // inside braking window
+  else if((time > ((float)TRAVEL_TIME_SECS - TIME_TO_STOP)) && (vel_f(time) > 4.0)) // inside braking window and moving
+  {
+    // Call braking function
+    accel=-MAX_DECEL_MPSPS * (1.0 - (((float)TRAVEL_DISTANCE_M - pos_f(time))/(float)TRAVEL_DISTANCE_M));
+  }
+
+  // inside braking window, but stopped too soon, re-accelerate to 1/4 speed
+  else if((time < ((float)MAX_TRAVEL_TIME_ALLOWED )) && (pos_f(time) < TRAVEL_DISTANCE_M) && (vel_f(time) < MAX_VEL_MPS/4.0))
+  {
+    // Call function to get to station
+    accel=MAX_ACCEL_MPSPS;
+  }
+
+  // otherwise just cruise or stand still
+  else
+  {
+    accel=0.0;
+  }
+
+  return accel;
+///////////// replace with ASM /////////////////////////////
+}
+
+float integrator(float t, float dt, float (*funcptr)(float))
+{
+///////////// replace with ASM /////////////////////////////
+  return ( ((*funcptr)(t)) * dt);
+///////////// replace with ASM /////////////////////////////
+}
+
+
+
+void dump_profile(int samples)
+{
+  int i;
+
+  printf("\n\n#, t, a, v, pos\n");
+  for(i=0; i<samples; i++)
+  {
+    printf("%d, %f, %f, %f, %f\n", i, t_profile[i], a_profile[i], v_profile[i], p_profile[i]);
+  }
+}
+    
+int main(void)
+{
+  float t=0.0, dt=0.0, accel=0.0, vel=0.0, pos=0.0, dv=0.0, dpos=0.0;
+  float ts=0.0, max_vel=0.0, max_accel=0.0;
+  double hpt=0.0, hpdt=0.0;
+  int sample=0, i, time0, time1;
+
+  // zero profiles
+  bzero(t_profile, sizeof(float)*(MAX_TRAVEL_TIME_ALLOWED));
+  bzero(a_profile, sizeof(float)*(MAX_TRAVEL_TIME_ALLOWED));
+  bzero(v_profile, sizeof(float)*(MAX_TRAVEL_TIME_ALLOWED));
+  bzero(p_profile, sizeof(float)*(MAX_TRAVEL_TIME_ALLOWED));
+
+  // at time zero
+  t_profile[sample]=t;
+  a_profile[sample]=accel;
+  v_profile[sample]=vel;
+  p_profile[sample]=pos;
+  sample++;
+
+  hpdt=1.0/100.0; // 10 millisec step size
+  dt=(float)hpdt;   // 10 millisec step size
+
+  printf("Departing Beijing South @ t=%f, Max Speed of %6.2f [Km/hr] or %f [M/sec], Expected Travel time of %4.2f hours\n", t, MAX_VEL_KPH, MAX_VEL_MPS, ((float)TRAVEL_TIME_SECS/SPH));
+  printf("...\n");
+
+  time0=clock();
+
+  do
+  {
+
+    // update time
+    hpt+=hpdt;
+    t=(float)hpt;
+
+    // update state with integrator
+    accel=accel_f(t);
+    dv=integrator(t, dt, &accel_f);
+    vel+=dv;
+    dpos=integrator(t, dt, &vel_f);
+    pos+=dpos;
+  
+    // track maximum velocity
+    if(vel > max_vel) max_vel=vel;
+    if(accel > max_accel) max_accel=accel;
+ 
+    // save profile 
+    if((t-ts) >= 1.0) // 1 second(s) has passed, so save to profile
+    {
+      t_profile[sample]=t;
+      a_profile[sample]=accel;
+      v_profile[sample]=vel;
+      p_profile[sample]=pos;
+      sample++;
+      ts=t; // save time of this sample
+    }
+
+  } while((t < ((float)MAX_TRAVEL_TIME_ALLOWED)) && (pos < (float)TRAVEL_DISTANCE_M));
+
+  time1=clock();
+
+  printf("Simulation time = %f microseconds\n", (float)(time1-time0)/CLOCKS_PER_MICROSEC);
+
+  if(pos < (float)TRAVEL_DISTANCE_M)
+  {
+    printf("\nTrain BROKE DOWN @ t=%f just %f meters short of Tianjin in %4.2f hours, Max Clocked Speed of %6.2f [Km/hr] or %f [M/sec] and Max Acceleration of %f [M/sec] measured\n", t, (pos - (float)TRAVEL_DISTANCE_M), (t/SPH), (max_vel*KPM*SPH), max_vel, max_accel);
+  }
+  else
+  {
+    printf("\nArrived Tianjin @ t=%f in %4.2f hours, Max Clocked Speed of %6.2f [Km/hr] or %f [M/sec] and Max Acceleration of %f [M/sec] measured\n", t, (t/SPH), (max_vel*KPM*SPH), max_vel, max_accel);
+  }
+
+  dump_profile(sample);
+  printf("Final vel=%f, pos=%f\n", vel, pos);
+}
