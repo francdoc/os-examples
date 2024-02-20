@@ -18,7 +18,6 @@
 //     Do man mq_overview for more information
 //
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -35,7 +34,7 @@
 #define ERROR (-1)
 
 static struct mq_attr mq_attr;
-static int rcvCnt=0;
+static int rcvCnt = 0;
 
 void receiver(void)
 {
@@ -44,16 +43,16 @@ void receiver(void)
   int prio;
   int nbytes, rc;
 
-  mymq = mq_open(SNDRCV_MQ, O_CREAT|O_RDWR, S_IRWXU, &mq_attr);
+  mymq = mq_open(SNDRCV_MQ, O_CREAT | O_RDWR, S_IRWXU, &mq_attr);
 
-  if(mymq == (mqd_t)ERROR)
+  if (mymq == (mqd_t)ERROR)
   {
     perror("receiver mq_open");
     exit(-1);
   }
 
   /* read oldest, highest priority msg from the message queue */
-  if((nbytes = mq_receive(mymq, buffer, MAX_MSG_SIZE, &prio)) == ERROR)
+  if ((nbytes = mq_receive(mymq, buffer, MAX_MSG_SIZE, &prio)) == ERROR)
   {
     perror("mq_receive");
   }
@@ -64,20 +63,19 @@ void receiver(void)
     printf("%d receive: msg %s received with priority = %d, length = %d\n",
            rcvCnt, buffer, prio, nbytes);
   }
-    
+
   rc = mq_close(mymq);
 
-  if(rc == ERROR)
+  if (rc == ERROR)
   {
     perror("receiver mq_close");
     exit(-1);
   }
-
 }
 
 static char canned_msg[] = "this is a test, and only a test, in the event of a real emergency, you would be instructed ...";
 
-static int sndCnt=0;
+static int sndCnt = 0;
 
 void sender(void)
 {
@@ -85,9 +83,9 @@ void sender(void)
   int prio;
   int nbytes, rc;
 
-  mymq = mq_open(SNDRCV_MQ, O_CREAT|O_RDWR, S_IRWXU, &mq_attr);
+  mymq = mq_open(SNDRCV_MQ, O_CREAT | O_RDWR, S_IRWXU, &mq_attr);
 
-  if(mymq < 0)
+  if (mymq < 0)
   {
     perror("sender mq_open");
     exit(-1);
@@ -98,7 +96,7 @@ void sender(void)
   }
 
   /* send message with priority=30 */
-  if((nbytes = mq_send(mymq, canned_msg, sizeof(canned_msg), 30)) == ERROR)
+  if ((nbytes = mq_send(mymq, canned_msg, sizeof(canned_msg), 30)) == ERROR)
   {
     perror("mq_send");
   }
@@ -107,10 +105,10 @@ void sender(void)
     sndCnt++;
     printf("%d send: message successfully sent\n", sndCnt);
   }
-  
+
   rc = mq_close(mymq);
 
-  if(rc < 0)
+  if (rc < 0)
   {
     perror("sender mq_close");
     exit(-1);
@@ -119,9 +117,7 @@ void sender(void)
   {
     printf("sender closed mq\n");
   }
-
 }
-
 
 void main(void)
 {
@@ -133,18 +129,15 @@ void main(void)
 
   mq_attr.mq_flags = 0;
 
-
   // Create two communicating processes right here
-  // 
+  //
   // test basic features
   //
 
   // Send a message, receive and print
-  for(idx=0; idx < MSG_ITERATIONS; idx++)
+  for (idx = 0; idx < MSG_ITERATIONS; idx++)
   {
-      sender();
-      receiver();
+    sender();
+    receiver();
   }
- 
- 
 }
