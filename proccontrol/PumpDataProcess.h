@@ -38,7 +38,7 @@ public:
     double untilNext(Routine_t *r);
     bool newActionDue(Routine_t *r);
     std::vector<PumpDataProcess::PumpDataProcess_t> currentAction(Routine_t *r);
-    std::vector<PumpDataProcess::PumpDataProcess_t> getNextActionOrNone(Routine_t *r);
+    std::vector<PumpDataProcess::PumpDataProcess_t> schedActionOrNone(Routine_t *r);
 
     std::vector<PumpDataProcess_t> pumpDataProcessList;
 

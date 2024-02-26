@@ -1,5 +1,7 @@
 // g++ -o PumpDataProcess PumpDataProcess.cpp
 
+#include <thread>
+#include <chrono>
 #include <cmath>
 #include <ctime>
 #include <iostream>
@@ -45,7 +47,8 @@ void PumpDataProcess::add_pump_data_process(double vol_per_turn_ul)
 
 void PumpDataProcess::loadStepsIntoRoutine(Routine_t *r, int iterations)
 {
-    r->iterations=iterations;
+    r->iterations = iterations;
+
     // Check if there are pump data processes to load
     if (!pumpDataProcessList.empty())
     {
@@ -62,7 +65,7 @@ void PumpDataProcess::loadStepsIntoRoutine(Routine_t *r, int iterations)
             for (const auto &step : pumpDataProcess.pumpSteps)
             {
                 // Print information about each step
-                printf("  Step - Duration: %f s, Turn per Sec: %f\n", step.duration_s, step.turn_per_sec);
+                printf("Step - Duration: %f s, Turn per Sec: %f\n", step.duration_s, step.turn_per_sec);
 
                 // Add the step to the routine
                 r->steps.push_back(pumpDataProcess); // Add the whole pump data process
@@ -132,16 +135,19 @@ std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::currentAction(R
 
     if (isDone(r) || r->step_idx == -1)
     {
+        std::cout << "Debug: No current action - Done or step_idx is -1" << std::endl;
         return noneVector;
     }
     else
     {
         if (r->step_idx >= 0 && static_cast<size_t>(r->step_idx) < r->steps.size())
         {
+            std::cout << "Debug: Current action available" << std::endl;
             return {r->steps[static_cast<size_t>(r->step_idx)]};
         }
         else
         {
+            std::cout << "Debug: No current action - Invalid step_idx" << std::endl;
             return noneVector;
         }
     }
@@ -160,7 +166,9 @@ double PumpDataProcess::elapsed(Routine_t *r)
 
 double PumpDataProcess::untilNext(Routine_t *r)
 {
-    return r->timer_duration - elapsed(r);
+    double time = r->timer_duration - elapsed(r);
+    printf("Time until next action: %f seconds\n", (time < 0) ? 0.0 : time);
+    return (time < 0) ? 0.0 : time;
 }
 
 bool PumpDataProcess::newActionDue(Routine_t *r)
@@ -168,13 +176,15 @@ bool PumpDataProcess::newActionDue(Routine_t *r)
     return untilNext(r) <= 0;
 }
 
-std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::getNextActionOrNone(Routine_t *r)
+std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::schedActionOrNone(Routine_t *r)
 {
     if (!newActionDue(r) || isDone(r))
     {
+        printf("Nothing else to do. Done!\n");
         return {};
     }
 
+    printf("Incrementing step_idx.\n.");
     r->step_idx += 1;
 
     if (r->step_idx != 0 && r->step_idx % r->steps.size() == 0)
@@ -187,6 +197,17 @@ std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::getNextActionOr
 
     std::vector<PumpDataProcess::PumpDataProcess_t> action = currentAction(r);
 
+    // Check if the action vector is not empty and contains at least one step
+    if (!action.empty() && !action[0].pumpSteps.empty())
+    {
+        // Set the timer based on the duration_s of the first PumpStep_t element
+        double selectedTime = action[0].pumpSteps[0].duration_s;
+        setTimer(r, selectedTime);
+
+        // Print the selected time
+        printf("Selected Time: %f seconds\n", selectedTime);
+    }
+
     return action;
 }
 
@@ -195,15 +216,19 @@ int main()
     PumpDataProcess pumpProcessor;
     pumpProcessor.add_pump_data_process(100.0);
     pumpProcessor.add_pump_step(4000.0, 200.0);
-    pumpProcessor.add_pump_step(4000.0, 200.0);
-    pumpProcessor.add_pump_step(4000.0, 200.0);
     pumpProcessor.print_pump_data_processes();
 
     PumpDataProcess::Routine_t routine;
-    pumpProcessor.loadStepsIntoRoutine(&routine,2);
+    pumpProcessor.loadStepsIntoRoutine(&routine, 1);
     pumpProcessor.totalSteps(&routine);
-    bool done_flag = pumpProcessor.isDone(&routine);
-    printf("Done flag: %s\n", done_flag ? "true" : "false");
+
+    while (!pumpProcessor.isDone(&routine))
+    {
+        pumpProcessor.schedActionOrNone(&routine);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    printf("Routine completed!\n");
 
     return 0;
 }
