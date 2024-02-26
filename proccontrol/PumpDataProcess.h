@@ -28,7 +28,7 @@ public:
     void add_pump_data_process(double vol_per_turn_ul);
     void print_pump_data_processes();
 
-    void loadStepsIntoRoutine(Routine_t *r);
+    void loadStepsIntoRoutine(Routine_t *r,int iterations);
     int iterationsCompleted(Routine_t *r);
     int currentIndex(Routine_t *r);
     int totalSteps(Routine_t *r);

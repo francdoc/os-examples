@@ -43,8 +43,9 @@ void PumpDataProcess::add_pump_data_process(double vol_per_turn_ul)
     pumpDataProcessList.push_back(pumpDataProcess);
 }
 
-void PumpDataProcess::loadStepsIntoRoutine(Routine_t *r)
+void PumpDataProcess::loadStepsIntoRoutine(Routine_t *r, int iterations)
 {
+    r->iterations=iterations;
     // Check if there are pump data processes to load
     if (!pumpDataProcessList.empty())
     {
@@ -89,7 +90,9 @@ void PumpDataProcess::print_pump_data_processes()
 
 int PumpDataProcess::iterationsCompleted(Routine_t *r)
 {
-    return r->step_idx % r->steps.size();
+    int iterations_completed = r->step_idx % r->steps.size();
+    printf("Iterations Completed: %d\n", iterations_completed);
+    return iterations_completed;
 }
 
 int PumpDataProcess::currentIndex(Routine_t *r)
@@ -108,14 +111,18 @@ bool PumpDataProcess::isDone(Routine_t *r)
 {
     if (r->steps.empty())
     {
+        printf("Steps empty!");
         return true;
     }
     if (r->iterations == -1)
     {
+        printf("Iterations equal to -1");
         return false;
     }
 
-    bool iterationsDone = iterationsCompleted(r) >= r->iterations;
+    int iterations = r->iterations;
+    printf("Total iterations: %d\n", iterations);
+    bool iterationsDone = iterationsCompleted(r) >= iterations;
     return iterationsDone;
 }
 
@@ -186,19 +193,17 @@ std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::getNextActionOr
 int main()
 {
     PumpDataProcess pumpProcessor;
-
-    // pump1
     pumpProcessor.add_pump_data_process(100.0);
     pumpProcessor.add_pump_step(4000.0, 200.0);
     pumpProcessor.add_pump_step(4000.0, 200.0);
     pumpProcessor.add_pump_step(4000.0, 200.0);
-
     pumpProcessor.print_pump_data_processes();
 
-    // Create a routine
     PumpDataProcess::Routine_t routine;
-    pumpProcessor.loadStepsIntoRoutine(&routine);
+    pumpProcessor.loadStepsIntoRoutine(&routine,2);
     pumpProcessor.totalSteps(&routine);
+    bool done_flag = pumpProcessor.isDone(&routine);
+    printf("Done flag: %s\n", done_flag ? "true" : "false");
 
     return 0;
 }
