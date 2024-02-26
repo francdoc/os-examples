@@ -14,7 +14,6 @@ void PumpDataProcess::add_pump_step(double flowrate_ul_min, double vol_ul)
 {
     if (!pumpDataProcessList.empty())
     {
-        // Assume adding steps to the first pump
         PumpDataProcess_t &currentPump = pumpDataProcessList.back();
 
         double flowrate_per_sec = flowrate_ul_min / 60.0;
@@ -22,12 +21,10 @@ void PumpDataProcess::add_pump_step(double flowrate_ul_min, double vol_ul)
         double turns = std::abs(vol_ul / currentPump.vol_per_turn_ul);
         double turn_per_sec = turns / duration_s;
 
-        // Create a PumpStep_t element
         PumpStep_t step;
         step.duration_s = duration_s;
         step.turn_per_sec = turn_per_sec;
 
-        // Add the PumpStep_t element to the current pump
         currentPump.pumpSteps.push_back(step);
     }
     else
@@ -41,34 +38,27 @@ void PumpDataProcess::add_pump_data_process(double vol_per_turn_ul)
     PumpDataProcess_t pumpDataProcess;
     pumpDataProcess.vol_per_turn_ul = vol_per_turn_ul;
 
-    // Add the new pump data process to the collection
     pumpDataProcessList.push_back(pumpDataProcess);
 }
 
 void PumpDataProcess::loadStepsIntoRoutine(Routine_t *r, int iterations)
 {
+    // TODO: debug function
     r->iterations = iterations;
 
-    // Check if there are pump data processes to load
     if (!pumpDataProcessList.empty())
     {
-        // Clear existing steps in the routine
         r->steps.clear();
 
-        // Iterate through each pump data process
         for (const auto &pumpDataProcess : pumpDataProcessList)
         {
-            // Print information about the pump data process
             printf("Pump - Vol per Turn: %f ul\n", pumpDataProcess.vol_per_turn_ul);
 
-            // Iterate through each step in the pump data process
             for (const auto &step : pumpDataProcess.pumpSteps)
             {
-                // Print information about each step
                 printf("Step - Duration: %f s, Turn per Sec: %f\n", step.duration_s, step.turn_per_sec);
 
-                // Add the step to the routine
-                r->steps.push_back(pumpDataProcess); // Add the whole pump data process
+                r->steps.push_back(pumpDataProcess);
             }
         }
     }
@@ -178,6 +168,7 @@ bool PumpDataProcess::newActionDue(Routine_t *r)
 
 std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::schedActionOrNone(Routine_t *r)
 {
+    // TODO: debug function
     if (!newActionDue(r) || isDone(r))
     {
         printf("Nothing else to do. Done!\n");
@@ -197,14 +188,10 @@ std::vector<PumpDataProcess::PumpDataProcess_t> PumpDataProcess::schedActionOrNo
 
     std::vector<PumpDataProcess::PumpDataProcess_t> action = currentAction(r);
 
-    // Check if the action vector is not empty and contains at least one step
     if (!action.empty() && !action[0].pumpSteps.empty())
     {
-        // Set the timer based on the duration_s of the first PumpStep_t element
         double selectedTime = action[0].pumpSteps[0].duration_s;
         setTimer(r, selectedTime);
-
-        // Print the selected time
         printf("Selected Time: %f seconds\n", selectedTime);
     }
 
@@ -224,6 +211,7 @@ int main()
     pumpProcessor.loadStepsIntoRoutine(&routine, 1);
     pumpProcessor.totalSteps(&routine);
 
+    // TODO: debug
     while (!pumpProcessor.isDone(&routine))
     {
         pumpProcessor.schedActionOrNone(&routine);
