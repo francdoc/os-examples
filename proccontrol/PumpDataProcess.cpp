@@ -216,6 +216,8 @@ int main()
     PumpDataProcess pumpProcessor;
     pumpProcessor.add_pump_data_process(100.0);
     pumpProcessor.add_pump_step(4000.0, 200.0);
+    pumpProcessor.add_pump_step(4000.0, 200.0);
+
     pumpProcessor.print_pump_data_processes();
 
     PumpDataProcess::Routine_t routine;
